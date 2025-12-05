@@ -79,3 +79,85 @@ return {
 };
 }
 
+// send QXMR asset (Qx asset transfer via QX contract)
+type SendQXMRParams = {
+    rpc_url: string;
+    seed: string;              // your 55-char seed (sender)
+    toId: string;              // destination identity (Qubic ID string)
+    units: bigint | number;    // amount of QXMR units (shares) to transfer
+    tickOffset?: number;       // how many ticks in the future (default ~20)
+    issuer?: string;           // optional override, default = DEFAULT_QXMR_ASSET_ISSUER
+    assetName?: string;        // optional override, default = DEFAULT_QXMR_ASSET_NAME
+    transferFee?: bigint | number; // optional override, default = QubicDefinitions.QX_TRANSFER_ASSET_FEE
+  };
+  
+  export async function sendQXMR({
+    rpc_url,
+    seed,
+    toId,
+    units,
+    tickOffset = 20,
+    issuer = DEFAULT_QXMR_ASSET_ISSUER,
+    assetName = DEFAULT_QXMR_ASSET_NAME,
+    transferFee = QubicDefinitions.QX_TRANSFER_ASSET_FEE,
+  }: SendQXMRParams) {
+    const helper = new QubicHelper();
+  
+    // 1. Derive sender ID package
+    const id = await helper.createIdPackage(seed);
+    const sourcePublicKey = id.publicKey; // Uint8Array
+  
+    // 2. Get current tick from RPC
+    const currentTick = await getCurrentTick(rpc_url);
+    const targetTick = currentTick + tickOffset;
+  
+    // 3. Build QX asset transfer payload (issuer, newOwner, assetName, units)
+    const unitsLong = new Long(BigInt(units));
+    const payloadBuilder = new QubicTransferAssetPayload()
+      .setIssuer(issuer)                // QXMR issuer identity
+      .setNewOwnerAndPossessor(toId)    // receiver identity
+      .setAssetName(assetName)          // "QXMR"
+      .setNumberOfUnits(unitsLong);     // number of QXMR units
+  
+    const payload: DynamicPayload = payloadBuilder.getTransactionPayload();
+  
+    // 4. QX asset transfer fee (amount in QU sent to QX contract)
+    const feeLong = new Long(BigInt(transferFee));
+  
+    // 5. Create transaction targeting QX contract
+    const tx = new QubicTransaction()
+      .setSourcePublicKey(new PublicKey(sourcePublicKey))
+      .setDestinationPublicKey(new PublicKey(QubicDefinitions.QX_ADDRESS))
+      .setTick(targetTick)
+      .setInputType(QubicDefinitions.QX_TRANSFER_ASSET_INPUT_TYPE) // 2
+      .setInputSize(payload.getPackageSize())
+      .setAmount(feeLong)               // pay QX_TRANSFER_ASSET_FEE in QU
+      .setPayload(payload);
+  
+    // 6. Sign with seed
+    await tx.build(seed);
+  
+    // 7. Encode and broadcast
+    const encoded = tx.encodeTransactionToBase64(tx.getPackageData());
+    const broadcastBody = { encodedTransaction: encoded };
+  
+    const res = await fetch(`${rpc_url}/v1/broadcast-transaction`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(broadcastBody),
+    });
+  
+    if (!res.ok) {
+      const text = await res.text();
+      throw new Error(`Broadcast failed: ${res.status} – ${text}`);
+    }
+  
+    const json = await res.json();
+  
+    return {
+      ...json,
+      currentTick,
+      targetTick,
+    };
+  }
+  
