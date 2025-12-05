@@ -11,6 +11,7 @@ export interface AccBalance {
 }
 
 export interface prevStatus {
+    balance: string;
     incomingAmount: string;
     numberOfIncomingTransfers: number;
     lastIncomingTransferTick: number;

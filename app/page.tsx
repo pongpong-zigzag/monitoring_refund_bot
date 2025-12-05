@@ -3,7 +3,7 @@
 import React from "react";
 import { prevStatus } from "./type/interface";
 import { getAccBalance, getTickInfo } from "@/lib/getAccInfo";
-import { sendQubic } from "@/lib/transfer";
+import { sendQubic, sendQXMR } from "@/lib/transfer";
 
 const RPC_URL = "https://rpc.qubic.org";
 const MY_ACCOUNT_ID = "FTHFVJVMZWFOQEYAZPYSXASIRMXCPEUVCFQKZVTKXEXXLYKSYJRZQQEHGDPN";
@@ -18,12 +18,15 @@ export default function Home() {
     const load = async () => {
       if (cancelled) return;
       const accInfo = await getAccBalance(RPC_URL, MY_ACCOUNT_ID);
-
+      
       const currentStatus: prevStatus = {
+        balance: accInfo.balance,
         incomingAmount: accInfo.incomingAmount,
         numberOfIncomingTransfers: accInfo.numberOfIncomingTransfers,
         lastIncomingTransferTick: accInfo.latestIncomingTransferTick,
       };
+
+      const lastTickInfo = await getTickInfo(RPC_URL, currentStatus.lastIncomingTransferTick);
 
       const hasStatusChanged =
         !prevStatusRef.current ||
@@ -33,17 +36,17 @@ export default function Home() {
 
       if (hasStatusChanged && typeof currentStatus.lastIncomingTransferTick === "number") {
         prevStatusRef.current = currentStatus;
-        console.log("currentStatus:", currentStatus);
+        // console.log("currentStatus:", currentStatus);
         const lastTickInfo = await getTickInfo(RPC_URL, currentStatus.lastIncomingTransferTick);
         if (cancelled) return;
-        console.log("Tick info result:", lastTickInfo);
+        // console.log("Tick info result:", lastTickInfo);
         for(let i = 0; i < lastTickInfo.length; i++) {
           if(lastTickInfo[i].destId === MY_ACCOUNT_ID) {
-            sendQubic({
+            sendQXMR({
               rpc_url: RPC_URL,
               seed: MY_ACCOUNT_SEED,
               toId: lastTickInfo[i].sourceId,
-              amount: 1000,
+              units: lastTickInfo[i].incomingAmount / 100, // send 100 QXMR
             })
           }
         }
@@ -53,7 +56,7 @@ export default function Home() {
 
     load();
 
-    const id = setInterval(() => load(), 2000);
+    const id = setInterval(() => load(), 1000);
 
     // cleanup
     return () => {
@@ -66,12 +69,13 @@ export default function Home() {
     <div>
       <button
         type="button"
+        className="bg-blue-500 text-white p-2 rounded-md hover:bg-blue-600"
         onClick={() =>
           sendQubic({
             rpc_url: RPC_URL,
             seed: "cshmfpcjdbuhcibkhqkwbqhrhsofhpmswyjiglwvyajuuspgvovjvwu",
             toId: MY_ACCOUNT_ID,
-            amount: 100,
+            amount: 10000,
           })
         }
       >
