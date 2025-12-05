@@ -17,12 +17,12 @@ export async function getAccAssets(rpc_url: string, publicId: string){
     return data.ownedAssets;
 }
 
-export async function getCurrentTick(rpc_url: string): Promise<number> {
+export async function getCurrentTick(rpc_url: string){
     const res = await fetch(`${rpc_url}/v1/tick-info`);
     if (!res.ok) {
         throw new Error(`Failed to fetch tick-info: ${res.status}`);
     }
     const data = await res.json();
-    return data.tickInfo.tick as number;
+    return data.tickInfo.tick;
 }
 

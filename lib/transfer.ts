@@ -6,16 +6,16 @@ import { DynamicPayload } from '@qubic-lib/qubic-ts-library/dist/qubic-types/Dyn
 import { QubicTransferAssetPayload } from '@qubic-lib/qubic-ts-library/dist/qubic-types/transacion-payloads/QubicTransferAssetPayload';
 import { QubicDefinitions } from '@qubic-lib/qubic-ts-library/dist/QubicDefinitions';
 
+import { getCurrentTick } from './getAccInfo';
+
 const DEFAULT_QXMR_ASSET_ISSUER = 'QXMRTKAIIGLUREPIQPCMHCKWSIPDTUYFCFNYXQLTECSUJVYEMMDELBMDOEYB';
 const DEFAULT_QXMR_ASSET_NAME = 'QXMR';
-const QXMR_SMALLEST_UNIT = BigInt(1_000_000_000); // 1 QXMR = 1e9 base units
-const QXMR_SMALLEST_UNIT_NUMBER = 1_000_000_000;
 
 //send Qubic tokens function
 type SendQubicParams = {
     rpc_url: string;
     seed: string;            // your 55-char seed
-    toIdentity: string;      // destination identity (public key string)
+    toId: string;      // destination identity (public key string)
     amount: bigint | number; // amount in QU (smallest unit, e.g. 100n for 100 QU)
     tickOffset?: number;     // how many ticks in the future (default 20–30 is safe)
   };
@@ -23,9 +23,9 @@ type SendQubicParams = {
 export async function sendQubic({
 rpc_url,
 seed,
-toIdentity,
+toId,
 amount,
-tickOffset = 30,
+tickOffset = 20,
 }: SendQubicParams) {
 const helper = new QubicHelper();
 
@@ -35,12 +35,7 @@ const id = await helper.createIdPackage(seed);
 const sourcePublicKey = id.publicKey; // string
 
 // 2. Get current tick from RPC
-const tickInfoRes = await fetch(`${rpc_url}/v1/tick-info`);
-if (!tickInfoRes.ok) {
-    throw new Error(`Failed to fetch tick-info: ${tickInfoRes.status}`);
-}
-const tickInfoJson = await tickInfoRes.json();
-const currentTick: number = tickInfoJson.tickInfo.tick;
+const currentTick = await getCurrentTick(rpc_url);
 
 const targetTick = currentTick + tickOffset;
 
@@ -51,7 +46,7 @@ payload.setPayload(new Uint8Array(0));
 // 4. Create the transaction
 const tx = new QubicTransaction()
     .setSourcePublicKey(new PublicKey(sourcePublicKey))
-    .setDestinationPublicKey(new PublicKey(toIdentity))
+    .setDestinationPublicKey(new PublicKey(toId))
     .setTick(targetTick)
     .setInputType(0)                   // 0 = basic QU transfer
     .setInputSize(payload.getPackageSize()) // 0

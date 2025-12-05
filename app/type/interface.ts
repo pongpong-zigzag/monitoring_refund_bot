@@ -10,6 +10,12 @@ export interface AccBalance {
     validForTick: number;
 }
 
+export interface prevStatus {
+    incomingAmount: string;
+    numberOfIncomingTransfers: number;
+    lastIncomingTransferTick: number;
+}
+
 export interface TickInfo {
     amount: string;
     destId: string;
