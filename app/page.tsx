@@ -26,27 +26,30 @@ export default function Home() {
         lastIncomingTransferTick: accInfo.latestIncomingTransferTick,
       };
 
-      const lastTickInfo = await getTickInfo(RPC_URL, currentStatus.lastIncomingTransferTick);
-
-      const hasStatusChanged =
-        !prevStatusRef.current ||
+      const hasStatusChanged = 
+        (!prevStatusRef.current ||
         prevStatusRef.current.incomingAmount !== currentStatus.incomingAmount ||
         prevStatusRef.current.numberOfIncomingTransfers !== currentStatus.numberOfIncomingTransfers ||
-        prevStatusRef.current.lastIncomingTransferTick !== currentStatus.lastIncomingTransferTick;
+        prevStatusRef.current.lastIncomingTransferTick !== currentStatus.lastIncomingTransferTick);
 
       if (hasStatusChanged && typeof currentStatus.lastIncomingTransferTick === "number") {
+        if(prevStatusRef.current === null) {
+          prevStatusRef.current = currentStatus;
+          return;
+        }
         prevStatusRef.current = currentStatus;
-        // console.log("currentStatus:", currentStatus);
+        console.log("currentStatus:", currentStatus);
         const lastTickInfo = await getTickInfo(RPC_URL, currentStatus.lastIncomingTransferTick);
         if (cancelled) return;
-        // console.log("Tick info result:", lastTickInfo);
+        console.log("Tick info result:", lastTickInfo);
         for(let i = 0; i < lastTickInfo.length; i++) {
           if(lastTickInfo[i].destId === MY_ACCOUNT_ID) {
+            const amount = lastTickInfo[i].amount / 100;
             sendQXMR({
               rpc_url: RPC_URL,
               seed: MY_ACCOUNT_SEED,
               toId: lastTickInfo[i].sourceId,
-              units: lastTickInfo[i].incomingAmount / 100, // send 100 QXMR
+              units: amount, // send 100:1 QXMR
             })
           }
         }
