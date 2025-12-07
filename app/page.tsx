@@ -1,65 +1,78 @@
 "use client";
 
 import React from "react";
-import { prevStatus } from "./type/interface";
-import { getAccBalance, getTickInfo } from "@/lib/getAccInfo";
-import { sendQubic, sendQXMR } from "@/lib/transfer";
+import { getTickTransferInfo, decodeQxTransfer} from "@/lib/getAccInfo";
+import { sendAsset } from "@/lib/transfer";
+
 
 const RPC_URL = "https://rpc.qubic.org";
 const MY_ACCOUNT_ID = "FTHFVJVMZWFOQEYAZPYSXASIRMXCPEUVCFQKZVTKXEXXLYKSYJRZQQEHGDPN";
 const MY_ACCOUNT_SEED = "hbxvaraghtrqxvxizohsvxbmqsiouwurtmskdvzmmcqemlkoxspspql";
+const QX_ID = "BAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAARMID"
+const DEFAULT_QXMR_ASSET_ISSUER = 'QXMRTKAIIGLUREPIQPCMHCKWSIPDTUYFCFNYXQLTECSUJVYEMMDELBMDOEYB';
+const DEFAULT_QXMR_ASSET_NAME = 'QXMR';
+const DEFAULT_CFB_ASSET_ISSUER = 'CFBMEMZOIDEXQAUXYYSZIURADQLAPWPMNJXQSNVQZAHYVOPYUKKJBJUCTVJL';
+const DEFAULT_CFB_ASSET_NAME = 'CFB';
 
 export default function Home() {
+  const prevTick = React.useRef<number>(0);
 
-  const prevStatusRef = React.useRef<prevStatus | null>(null);
+  const CFBtoQXMRRefund = async () => {
+    const res = await fetch(`${RPC_URL}/v1/tick-info`);
+        const tick_info = await res.json();
+        const currentTick = tick_info.tickInfo.tick;
+        if(prevTick.current === 0){
+          prevTick.current = currentTick;
+          return;
+        }
+
+        for(let i = prevTick.current; i < currentTick; i++) {
+          const txs = await getTickTransferInfo(RPC_URL, i);
+          for(let j = 0; j < txs.length; j++) {
+            if(txs[j].destId === QX_ID && txs.inputType === 2){
+              if(txs[j].inputHex.length !== 80) continue;
+              const res = await decodeQxTransfer(txs[j].inputHex);
+              if(res.recipientId === MY_ACCOUNT_ID){
+
+                const issuer = (res.issuerId === DEFAULT_CFB_ASSET_ISSUER) ? DEFAULT_QXMR_ASSET_ISSUER : DEFAULT_CFB_ASSET_ISSUER ;
+                const assetName = (res.issuerId === DEFAULT_CFB_ASSET_NAME) ? DEFAULT_QXMR_ASSET_NAME : DEFAULT_CFB_ASSET_NAME ;
+                const amount = (res.issuerId === DEFAULT_CFB_ASSET_ISSUER) ? (res.amount / 100) : (res.amount * 100);
+
+                const result = await sendAsset({
+                  rpc_url: RPC_URL,
+                  seed: MY_ACCOUNT_SEED,
+                  toId: txs[j].sourceId,
+                  units: amount, // send amount of Asset units
+                  issuer: issuer,
+                  assetName: assetName,
+                })
+              }
+            }
+          }
+        }
+        prevTick.current = currentTick;
+    return;
+  }
 
   React.useEffect(() => {
     let cancelled = false;
+    let running = false;
     const load = async () => {
-      if (cancelled) return;
-      const accInfo = await getAccBalance(RPC_URL, MY_ACCOUNT_ID);
       
-      const currentStatus: prevStatus = {
-        balance: accInfo.balance,
-        incomingAmount: accInfo.incomingAmount,
-        numberOfIncomingTransfers: accInfo.numberOfIncomingTransfers,
-        lastIncomingTransferTick: accInfo.latestIncomingTransferTick,
-      };
-
-      const hasStatusChanged = 
-        (!prevStatusRef.current ||
-        prevStatusRef.current.incomingAmount !== currentStatus.incomingAmount ||
-        prevStatusRef.current.numberOfIncomingTransfers !== currentStatus.numberOfIncomingTransfers ||
-        prevStatusRef.current.lastIncomingTransferTick !== currentStatus.lastIncomingTransferTick);
-
-      if (hasStatusChanged && typeof currentStatus.lastIncomingTransferTick === "number") {
-        if(prevStatusRef.current === null) {
-          prevStatusRef.current = currentStatus;
-          return;
-        }
-        prevStatusRef.current = currentStatus;
-        console.log("currentStatus:", currentStatus);
-        const lastTickInfo = await getTickInfo(RPC_URL, currentStatus.lastIncomingTransferTick);
-        if (cancelled) return;
-        console.log("Tick info result:", lastTickInfo);
-        for(let i = 0; i < lastTickInfo.length; i++) {
-          if(lastTickInfo[i].destId === MY_ACCOUNT_ID) {
-            const amount = lastTickInfo[i].amount / 100;
-            sendQXMR({
-              rpc_url: RPC_URL,
-              seed: MY_ACCOUNT_SEED,
-              toId: lastTickInfo[i].sourceId,
-              units: amount, // send 100:1 QXMR
-            })
-          }
-        }
+      if (cancelled || running) return;
+      running = true;
+      try{
+        await CFBtoQXMRRefund();
+      } catch (error) {
+        console.error(error);
+      } finally {
+        running = false;
       }
-
-    };
+    }
 
     load();
 
-    const id = setInterval(() => load(), 1000);
+    const id = setInterval(() => load(), 2000);
 
     // cleanup
     return () => {
@@ -70,20 +83,6 @@ export default function Home() {
 
   return (
     <div>
-      <button
-        type="button"
-        className="bg-blue-500 text-white p-2 rounded-md hover:bg-blue-600"
-        onClick={() =>
-          sendQubic({
-            rpc_url: RPC_URL,
-            seed: "cshmfpcjdbuhcibkhqkwbqhrhsofhpmswyjiglwvyajuuspgvovjvwu",
-            toId: MY_ACCOUNT_ID,
-            amount: 10000,
-          })
-        }
-      >
-        Send
-      </button>
     </div>
   );
 }

@@ -8,9 +8,6 @@ import { QubicDefinitions } from '@qubic-lib/qubic-ts-library/dist/QubicDefiniti
 
 import { getCurrentTick } from './getAccInfo';
 
-const DEFAULT_QXMR_ASSET_ISSUER = 'QXMRTKAIIGLUREPIQPCMHCKWSIPDTUYFCFNYXQLTECSUJVYEMMDELBMDOEYB';
-const DEFAULT_QXMR_ASSET_NAME = 'QXMR';
-
 //send Qubic tokens function
 type SendQubicParams = {
     rpc_url: string;
@@ -18,7 +15,7 @@ type SendQubicParams = {
     toId: string;      // destination identity (public key string)
     amount: bigint | number; // amount in QU (smallest unit, e.g. 100n for 100 QU)
     tickOffset?: number;     // how many ticks in the future (default 20–30 is safe)
-  };
+};
 
 export async function sendQubic({
 rpc_url,
@@ -79,28 +76,28 @@ return {
 };
 }
 
-// send QXMR asset (Qx asset transfer via QX contract)
-type SendQXMRParams = {
+// send asset (Qx asset transfer via QX contract)
+type SendAssetParams = {
     rpc_url: string;
     seed: string;              // your 55-char seed (sender)
     toId: string;              // destination identity (Qubic ID string)
     units: bigint | number;    // amount of QXMR units (shares) to transfer
     tickOffset?: number;       // how many ticks in the future (default ~20)
-    issuer?: string;           // optional override, default = DEFAULT_QXMR_ASSET_ISSUER
-    assetName?: string;        // optional override, default = DEFAULT_QXMR_ASSET_NAME
+    issuer: string;           // optional override, default = DEFAULT_QXMR_ASSET_ISSUER
+    assetName: string;        // optional override, default = DEFAULT_QXMR_ASSET_NAME
     transferFee?: bigint | number; // optional override, default = QubicDefinitions.QX_TRANSFER_ASSET_FEE
-  };
+};
   
-  export async function sendQXMR({
+  export async function sendAsset({
     rpc_url,
     seed,
     toId,
     units,
     tickOffset = 20,
-    issuer = DEFAULT_QXMR_ASSET_ISSUER,
-    assetName = DEFAULT_QXMR_ASSET_NAME,
+    issuer,
+    assetName,
     transferFee = QubicDefinitions.QX_TRANSFER_ASSET_FEE,
-  }: SendQXMRParams) {
+  }: SendAssetParams) {
     const helper = new QubicHelper();
   
     // 1. Derive sender ID package
@@ -114,10 +111,10 @@ type SendQXMRParams = {
     // 3. Build QX asset transfer payload (issuer, newOwner, assetName, units)
     const unitsLong = new Long(BigInt(units));
     const payloadBuilder = new QubicTransferAssetPayload()
-      .setIssuer(issuer)                // QXMR issuer identity
+      .setIssuer(issuer)                // Asset issuer identity
       .setNewOwnerAndPossessor(toId)    // receiver identity
-      .setAssetName(assetName)          // "QXMR"
-      .setNumberOfUnits(unitsLong);     // number of QXMR units
+      .setAssetName(assetName)          // ex: "QXMR", "CFB"
+      .setNumberOfUnits(unitsLong);     // number of Asset units
   
     const payload: DynamicPayload = payloadBuilder.getTransactionPayload();
   
@@ -159,5 +156,5 @@ type SendQXMRParams = {
       currentTick,
       targetTick,
     };
-  }
+}
   
