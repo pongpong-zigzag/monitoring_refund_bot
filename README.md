@@ -1,93 +1,57 @@
-# Qubic Account Monitor & QXMR Refund System
+# Qubic Refund Console
 
-A Next.js application that monitors your Qubic account in real-time and automatically sends QXMR tokens as refunds when you receive Qubic tokens.
+Modernized Next.js app for mirroring CFB/QXMR swaps with a hardened backend and a streamlined dashboard.
 
-## Features
+## Highlights
 
-1. **Real-Time Account Monitoring**: Continuously monitors your Qubic account for incoming transfers
-2. **Automatic QXMR Refunds**: Automatically sends 1 QXMR token per 100 qubic received
-3. **Transaction Tracking**: Prevents duplicate refunds by tracking processed transactions
-4. **User-Friendly UI**: Clean interface showing account balance, monitoring status, and refund history
+- **Backend-first engine** – All monitoring and refund logic lives inside `app/api/refunds`, so seeds never reach the browser.
+- **Adaptive UI** – Glassmorphic dashboard with live stats, auto-monitor toggle, and contextual guidance.
+- **Audit trail** – In-memory ledger keeps a rolling history of recent refunds (success, skipped, failed).
+- **Lean codebase** – Shared Qubic helper (`lib/qubic.ts`) powers both decoding and broadcast flows with minimal duplication.
 
 ## Getting Started
 
-### Prerequisites
-
-- Node.js installed
-- A Qubic account with:
-  - Your account ID (public key)
-  - Your 55-character seed phrase (keep this secure!)
-  - Sufficient QXMR tokens for refunds
-  - The QXMR asset ID
-
-### Installation
-
-1. Install dependencies:
 ```bash
 npm install
-```
-
-2. Update configuration in `app/page.tsx`:
-   - Set `ACCOUNT_ID` to your Qubic account public key
-   - Set `SEED` to your 55-character seed phrase (⚠️ Keep this secure!)
-   - Set `QXMR_ASSET_ID` to the QXMR asset ID (26-character base32 string)
-
-3. Run the development server:
-```bash
 npm run dev
+# visit http://localhost:3000
 ```
 
-4. Open [http://localhost:3000](http://localhost:3000) in your browser
+### Required environment
 
-### How to Get QXMR Asset ID
+Create `.env.local` (never commit secrets):
 
-The QXMR asset ID is a 26-character base32 string. You can find it by:
-- Checking your owned assets using the Qubic RPC API
-- Using a Qubic explorer or wallet that shows asset details
-- The asset ID format is typically a base32-encoded string
+```
+QUBIC_RPC_URL=https://rpc.qubic.org
+QUBIC_ACCOUNT_ID=YOUR_PUBLIC_ID
+QUBIC_ACCOUNT_SEED=YOUR_55_CHAR_SEED
+QUBIC_QXMR_ASSET_ISSUER=QXMRTKAIIGLUREPIQPCMHCKWSIPDTUYFCFNYXQLTECSUJVYEMMDELBMDOEYB
+QUBIC_QXMR_ASSET_NAME=QXMR
+QUBIC_CFB_ASSET_ISSUER=CFBMEMZOIDEXQAUXYYSZIURADQLAPWPMNJXQSNVQZAHYVOPYUKKJBJUCTVJL
+QUBIC_CFB_ASSET_NAME=CFB
+QUBIC_REFUND_RATE=100
+```
 
-### Usage
+Override issuers, asset names, or the rate (CFB units per QXMR) as needed.
 
-1. **Start Monitoring**: Click the "Start Monitoring" button to begin real-time monitoring
-2. **Monitor Status**: The UI shows whether monitoring is active (green) or inactive (gray)
-3. **View Refunds**: All refunds sent are displayed in the "Refund History" section
-4. **Stop Monitoring**: Click "Stop Monitoring" to pause the service
+## Architecture
 
-### How It Works
+- `lib/qubic.ts` – Typed helpers for ticks, payload decoding, and QX asset transfers.
+- `lib/refund-runner.ts` – Stateful worker that scans ticks, enforces swap profiles, and logs history.
+- `app/api/refunds/route.ts` – GET returns state, POST triggers a processing cycle.
+- `app/page.tsx` – Client dashboard that polls status, triggers cycles, and visualizes history.
 
-1. The system polls your account balance every 10 seconds
-2. When new incoming Qubic transfers are detected:
-   - The system calculates the QXMR amount: 1 QXMR per 100 qubic
-   - Sends the calculated QXMR tokens back to the sender
-   - Records the transaction in the refund history
-3. Processed transactions are tracked to prevent duplicate refunds
+## Deployment Notes
 
-### Important Notes
+- Deploy anywhere Next.js App Router is supported (Vercel, Node server).
+- Ensure env vars are configured per environment; backend refuses to run without them.
+- For persistent history, swap the in-memory state with a database or KV store.
 
-- ⚠️ **Security**: Never expose your seed phrase in production or commit it to version control
-- Make sure you have sufficient QXMR tokens in your account for refunds
-- The system sends QXMR in smallest units (1 QXMR = 1,000,000,000 smallest units)
-- Transactions use a 30-tick offset for safety
-- The monitoring interval is set to 10 seconds by default (configurable)
+## Scripts
 
-### Configuration
-
-You can adjust the following in `app/page.tsx`:
-- `RPC_URL`: Qubic RPC endpoint (default: 'https://rpc.qubic.org')
-- `ACCOUNT_ID`: Your account public key
-- `SEED`: Your 55-character seed phrase
-- `QXMR_ASSET_ID`: QXMR asset ID
-- `pollInterval`: Monitoring interval in milliseconds (default: 10000)
-- `qubicPerQxmr`: Exchange rate (default: 100)
-
-## Project Structure
-
-- `app/page.tsx`: Main UI component with monitoring controls
-- `lib/monitorAccount.ts`: Account monitoring service
-- `lib/getAccInfo.ts`: Qubic API functions (balance, transfers, sending tokens/assets)
-- `app/type/interface.ts`: TypeScript interfaces
-
-## Learn More
-
-- [Next.js Documentation](https://nextjs.org/docs)
-- [Qubic Documentation](https://qubic.org)
+| Command      | Description                |
+|--------------|----------------------------|
+| `npm run dev`   | Start local dev server    |
+| `npm run build` | Production build          |
+| `npm start`     | Run production server     |
+| `npm run lint`  | ESLint check              |

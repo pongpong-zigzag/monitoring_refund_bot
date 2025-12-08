@@ -1,8 +1,9 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #030712;
+  --foreground: #f4f4f5;
+  --accent: linear-gradient(135deg, #4f46e5, #06b6d4);
 }
 
 @theme inline {
@@ -12,15 +13,24 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+* {
+  box-sizing: border-box;
 }
 
 body {
-  background: var(--background);
+  margin: 0;
+  min-height: 100vh;
+  background: radial-gradient(circle at top, #1e1b4b, #020617);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-geist-sans), system-ui, -apple-system, sans-serif;
+}
+
+code {
+  font-family: var(--font-geist-mono), ui-monospace, SFMono-Regular, Menlo,
+    Consolas, "Liberation Mono", monospace;
+}
+
+::selection {
+  background: #a5b4fc;
+  color: #0f172a;
 }
